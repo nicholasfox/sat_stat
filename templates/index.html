@@ -361,7 +361,7 @@ function renderChart(result) {
   var container = document.getElementById('chartContainer');
   container.style.display = 'block';
 
-  var labels = result.bins.map(function(b) { return b.collapsed ? '⋯ ' + b.min + ' km ⋯' : b.min + '-' + b.max + ' km'; });
+  var labels = result.bins.map(function(b) { return b.min + '-' + b.max + ' km'; });
 
   var subColorMap = {};
   var subLabelMap = {};
@@ -434,9 +434,12 @@ function renderChart(result) {
     (useDb ? ' | dB scale' : '');
 
   var pluginOpts = {
-    legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
+    legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12,
+      filter: function(item) { return item.text !== ''; }
+    } },
     tooltip: {
       filter: function(item) {
+        if (item.dataset.label === '') return false;
         if (useDb) {
           var raw = (item.dataset.rawData || [])[item.dataIndex] || 0;
           return raw > 0;

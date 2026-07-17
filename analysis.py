@@ -428,26 +428,18 @@ def api_analyze():
         if b['count'] == 0 and not b['subcategories']:
             empty_run.append(b)
         else:
-            if empty_run:
-                if len(empty_run) <= 3:
-                    collapsed_bins.extend(empty_run)
-                else:
-                    mid = len(empty_run) // 2
-                    for idx in [0, mid, -1]:
-                        eb = dict(empty_run[idx])
-                        eb['collapsed'] = True
-                        collapsed_bins.append(eb)
-                empty_run = []
+            if len(empty_run) >= 2:
+                collapsed_bins.append({'min': empty_run[0]['min'], 'max': empty_run[-1]['max'],
+                    'count': 0, 'categories': {}, 'subcategories': {}, 'collapsed': True})
+            elif empty_run:
+                collapsed_bins.append(empty_run[0])
+            empty_run = []
             collapsed_bins.append(b)
-    if empty_run:
-        if len(empty_run) <= 3:
-            collapsed_bins.extend(empty_run)
-        else:
-            mid = len(empty_run) // 2
-            for idx in [0, mid, -1]:
-                eb = dict(empty_run[idx])
-                eb['collapsed'] = True
-                collapsed_bins.append(eb)
+    if len(empty_run) >= 2:
+        collapsed_bins.append({'min': empty_run[0]['min'], 'max': empty_run[-1]['max'],
+            'count': 0, 'categories': {}, 'subcategories': {}, 'collapsed': True})
+    elif empty_run:
+        collapsed_bins.append(empty_run[0])
 
     return json.dumps({
         'status': 'ok',
