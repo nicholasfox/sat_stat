@@ -11,12 +11,23 @@ from urllib.request import Request, urlopen, HTTPError, URLError
 from bottle import Bottle, request, response, static_file
 
 if getattr(sys, 'frozen', False):
-    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    MEIPASS = sys._MEIPASS
+    EXE_DIR = os.path.dirname(os.path.abspath(sys.executable))
 else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MEIPASS = os.path.dirname(os.path.abspath(__file__))
+    EXE_DIR = MEIPASS
 
-TLE_STATIC_FILE = os.path.join(BASE_DIR, 'tle_data.json')
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+TEMPLATE_DIR = os.path.join(MEIPASS, 'templates')
+
+def _tle_path():
+    if getattr(sys, 'frozen', False):
+        exe_path = os.path.join(EXE_DIR, 'tle_data.json')
+        if os.path.exists(exe_path):
+            return exe_path
+        return os.path.join(MEIPASS, 'tle_data.json')
+    return os.path.join(EXE_DIR, 'tle_data.json')
+
+TLE_STATIC_FILE = _tle_path()
 TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'
 TLE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 R_EARTH = 6371.0
@@ -523,17 +534,25 @@ def start_server(host, port):
 
 
 def main_gui(port):
-    t = threading.Thread(target=start_server, args=('127.0.0.1', port), daemon=True)
-    t.start()
-    import time
-    time.sleep(0.8)
+    try:
+        t = threading.Thread(target=start_server, args=('127.0.0.1', port), daemon=True)
+        t.start()
+        import time
+        time.sleep(0.8)
 
-    import webview
-    webview.create_window(
-        title='Satellite TLE Analyzer',
-        url=f'http://127.0.0.1:{port}/',
-        width=1400, height=900, resizable=True, min_size=(800, 600),
-    )
+        import webview
+        webview.create_window(
+            title='Satellite TLE Analyzer',
+            url=f'http://127.0.0.1:{port}/',
+            width=1400, height=900, resizable=True, min_size=(800, 600),
+        )
+    except Exception:
+        import traceback, datetime
+        log_path = os.path.join(EXE_DIR, 'error.log')
+        with open(log_path, 'w') as f:
+            f.write(f'=== {datetime.datetime.now()} ===\n')
+            traceback.print_exc(file=f)
+        raise
 
 
 if __name__ == '__main__':
