@@ -442,13 +442,7 @@ function renderChart(result) {
   var pluginOpts = {
     legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
     tooltip: {
-      position: 'nearest',
-      backgroundColor: 'rgba(0,0,0,0.01)',
-      titleColor: 'transparent',
-      bodyColor: 'transparent',
-      footerColor: 'transparent',
-      labelColor: function() { return { borderColor: 'transparent', backgroundColor: 'transparent', borderWidth: 0 }; },
-      boxPadding: 0,
+      enabled: false,
       filter: function(item) {
         if (item.dataset.label === '') return false;
         if (useDb) {
@@ -534,30 +528,36 @@ function renderChart(result) {
       },
       plugins: pluginOpts,
       onHover: function(event, chartElements, chart) {
-        var tooltip = chart.tooltip;
         var el = document.getElementById('chart-tooltip');
-        if (!el || !tooltip) return;
-        if (tooltip.opacity === 0 || !chartElements.length) {
+        if (!el) return;
+        if (!chartElements || !chartElements.length) {
           el.style.display = 'none';
           return;
         }
         el.style.display = 'block';
         el.style.left = Math.round(event.x) + 'px';
         el.style.top = Math.round(event.y) + 'px';
+        var dataIdx = chartElements[0].index;
         var html = '';
-        if (tooltip.title && tooltip.title.length) {
-          html += '<div class="tt-title">' + tooltip.title[0] + '</div>';
+        if (chart.data.labels && chart.data.labels[dataIdx]) {
+          html += '<div class="tt-title">' + chart.data.labels[dataIdx] + '</div>';
         }
-        if (tooltip.body && tooltip.body.length) {
-          for (var ii = 0; ii < tooltip.body.length; ii++) {
-            var lines = tooltip.body[ii].lines || [];
-            for (var jj = 0; jj < lines.length; jj++) {
-              if (lines[jj]) html += '<div>' + lines[jj] + '</div>';
-            }
-          }
+        var total = 0;
+        var seen = {};
+        for (var ii = 0; ii < chartElements.length; ii++) {
+          var dsIdx = chartElements[ii].datasetIndex;
+          var ds = chart.data.datasets[dsIdx];
+          if (!ds || ds.label === '') continue;
+          var raw = ds.rawData ? ds.rawData[dataIdx] : ds.data[dataIdx];
+          if (raw <= 0) continue;
+          var key = ds.label;
+          if (seen[key]) continue;
+          seen[key] = true;
+          total += raw;
+          html += '<div>' + key + ': ' + raw + '</div>';
         }
-        if (tooltip.footer && tooltip.footer.length) {
-          html += '<div class="tt-footer">' + tooltip.footer[0] + '</div>';
+        if (total > 0) {
+          html += '<div class="tt-footer">Total: ' + total + ' satellites</div>';
         }
         el.innerHTML = html || '&nbsp;';
       },
