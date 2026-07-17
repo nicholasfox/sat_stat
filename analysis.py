@@ -196,6 +196,29 @@ def _assign_sub_colors():
 _assign_sub_colors()
 
 
+_SUB_RANGES = {}
+
+def _compute_ranges():
+    cached = load_cache()
+    if not cached:
+        return
+    ranges = {}
+    for raw in cached:
+        sat = enrich(dict(raw))
+        sk = sat['sub_key']
+        h = sat['h_mean']
+        if h is None:
+            continue
+        if sk not in ranges:
+            ranges[sk] = [h, h]
+        else:
+            if h < ranges[sk][0]:
+                ranges[sk][0] = h
+            if h > ranges[sk][1]:
+                ranges[sk][1] = h
+    global _SUB_RANGES
+    _SUB_RANGES = ranges
+
 def classify(name):
     for p in FLAT_PATTERNS:
         if p['match'](name):
@@ -297,6 +320,9 @@ def enrich(sat):
     return sat
 
 
+_compute_ranges()
+
+
 # bottle has no enable_cors decorator built-in
 @app.hook('after_request')
 def enable_cors():
@@ -336,7 +362,9 @@ def api_categories():
         subs = [{'key': s['key'], 'label': s['label'],
                  'country': s.get('country', ''), 'operator': s.get('operator', ''),
                  'name_zh': s.get('name_zh', ''),
-                 'color': s['color']}
+                 'color': s['color'],
+                 'range_min': round(_SUB_RANGES.get(s['key'], [0,0])[0]),
+                 'range_max': round(_SUB_RANGES.get(s['key'], [0,0])[1])}
                 for s in cat['subcategories']]
         clean.append({
             'key': cat['key'],
