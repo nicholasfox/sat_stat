@@ -535,8 +535,9 @@ function renderChart(result) {
           return;
         }
         el.style.display = 'block';
-        el.style.left = Math.round(event.x) + 'px';
-        el.style.top = Math.round(event.y) + 'px';
+        var binH = parseInt(document.getElementById('binHeight').value, 10) || 20;
+        el.style.left = Math.round(event.x + 20) + 'px';
+        el.style.top = Math.round(event.y + binH) + 'px';
         var dataIdx = chartElements[0].index;
         var html = '';
         if (chart.data.labels && chart.data.labels[dataIdx]) {
