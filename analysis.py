@@ -19,15 +19,8 @@ else:
 
 TEMPLATE_DIR = os.path.join(MEIPASS, 'templates')
 
-def _tle_path():
-    if getattr(sys, 'frozen', False):
-        exe_path = os.path.join(EXE_DIR, 'tle_data.json')
-        if os.path.exists(exe_path):
-            return exe_path
-        return os.path.join(MEIPASS, 'tle_data.json')
-    return os.path.join(EXE_DIR, 'tle_data.json')
-
-TLE_STATIC_FILE = _tle_path()
+TLE_STATIC_FILE = os.path.join(EXE_DIR, 'tle_data.json')
+TLE_BUNDLED = os.path.join(MEIPASS, 'tle_data.json') if getattr(sys, 'frozen', False) else None
 TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'
 TLE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 R_EARTH = 6371.0
@@ -308,8 +301,11 @@ def _parse_tle(text):
 
 
 def load_cache():
-    if os.path.exists(TLE_STATIC_FILE):
-        with open(TLE_STATIC_FILE, 'r') as f:
+    path = TLE_STATIC_FILE
+    if not os.path.exists(path) and TLE_BUNDLED and os.path.exists(TLE_BUNDLED):
+        path = TLE_BUNDLED
+    if os.path.exists(path):
+        with open(path, 'r') as f:
             data = json.load(f)
             if isinstance(data, list):
                 return {'data': data, 'fetched_at': None}
@@ -505,9 +501,12 @@ def api_tle_info():
     if fetched:
         return json.dumps({'status': 'ok', 'epoch': fetched, 'count': len(cached['data'])})
     # legacy: use file mtime instead of scanning TLE epochs
-    mtime = os.path.getmtime(TLE_STATIC_FILE)
-    from datetime import datetime as _dt2
-    return json.dumps({'status': 'ok', 'epoch': _dt2.utcfromtimestamp(mtime).isoformat()[:19], 'count': len(cached['data'])})
+    legacy_path = TLE_STATIC_FILE if os.path.exists(TLE_STATIC_FILE) else TLE_BUNDLED
+    if legacy_path:
+        mtime = os.path.getmtime(legacy_path)
+        from datetime import datetime as _dt2
+        return json.dumps({'status': 'ok', 'epoch': _dt2.utcfromtimestamp(mtime).isoformat()[:19], 'count': len(cached['data'])})
+    return json.dumps({'status': 'ok', 'epoch': '', 'count': len(cached['data'])})
 
 
 @app.route('/api/update_status')
