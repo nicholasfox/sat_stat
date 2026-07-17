@@ -203,8 +203,9 @@ def _compute_ranges():
     cached = load_cache()
     if not cached:
         return
+    sats = cached['data']
     ranges = {}
-    for raw in cached:
+    for raw in sats:
         sat = enrich(dict(raw))
         sk = sat['sub_key']
         h = sat['h_mean']
@@ -290,13 +291,18 @@ def _parse_tle(text):
 def load_cache():
     if os.path.exists(TLE_STATIC_FILE):
         with open(TLE_STATIC_FILE, 'r') as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, list):
+                return {'data': data, 'fetched_at': None}
+            return data
     return None
 
 
 def save_cache(data):
+    from datetime import datetime as _dt
+    now = _dt.utcnow().isoformat()[:19]
     with open(TLE_STATIC_FILE, 'w') as f:
-        json.dump(data, f)
+        json.dump({'data': data, 'fetched_at': now}, f)
 
 
 def enrich(sat):
@@ -352,7 +358,7 @@ def api_data():
     cached = load_cache()
     if cached is None:
         return json.dumps({'status': 'error', 'message': 'No TLE data. POST /update first.'})
-    result = [enrich(dict(s)) for s in cached]
+    result = [enrich(dict(s)) for s in cached['data']]
     return json.dumps({'status': 'ok', 'count': len(result), 'satellites': result})
 
 
@@ -384,7 +390,7 @@ def api_analyze():
     body = request.json or {}
     selected_subs = set(body.get('selected_subcategories', []))
 
-    enriched = [enrich(dict(s)) for s in cached]
+    enriched = [enrich(dict(s)) for s in cached['data']]
 
     filtered = [s for s in enriched if s['sub_key'] in selected_subs and s['h_mean'] is not None]
 
@@ -471,24 +477,25 @@ def api_tle_info():
     cached = load_cache()
     if not cached:
         return json.dumps({'status': 'ok', 'epoch': '', 'count': 0})
-    latest = ''
-    for s in cached:
-        e = _tle_epoch(s['line1'])
-        if e > latest:
-            latest = e
-    return json.dumps({'status': 'ok', 'epoch': latest, 'count': len(cached)})
+    fetched = cached.get('fetched_at')
+    if fetched:
+        return json.dumps({'status': 'ok', 'epoch': fetched, 'count': len(cached['data'])})
+    # legacy: use file mtime instead of scanning TLE epochs
+    mtime = os.path.getmtime(TLE_STATIC_FILE)
+    from datetime import datetime as _dt2
+    return json.dumps({'status': 'ok', 'epoch': _dt2.utcfromtimestamp(mtime).isoformat()[:19], 'count': len(cached['data'])})
 
 
 @app.route('/api/update_status')
 def api_update_status():
     cached = load_cache()
     if cached:
-        latest = ''
-        for s in cached:
-            e = _tle_epoch(s['line1'])
-            if e > latest:
-                latest = e
-        return json.dumps({'status': 'ok', 'cached': True, 'count': len(cached), 'epoch': latest})
+        fetched = cached.get('fetched_at')
+        if not fetched:
+            mtime = os.path.getmtime(TLE_STATIC_FILE)
+            from datetime import datetime as _dt2
+            fetched = _dt2.utcfromtimestamp(mtime).isoformat()[:19]
+        return json.dumps({'status': 'ok', 'cached': True, 'count': len(cached['data']), 'epoch': fetched})
     return json.dumps({'status': 'ok', 'cached': False, 'count': 0})
 
 
