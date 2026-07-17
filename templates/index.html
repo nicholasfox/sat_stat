@@ -555,7 +555,7 @@ function renderChart(result) {
           if (seen[key]) continue;
           seen[key] = true;
           total += raw;
-          html += '<div>' + key + ': ' + raw + '</div>';
+          html += '<div><span style="display:inline-block;width:10px;height:10px;background:' + ds.backgroundColor + ';margin-right:5px;border-radius:2px;vertical-align:middle"></span>' + key + ': ' + raw + '</div>';
         }
         if (total > 0) {
           html += '<div class="tt-footer">Total: ' + total + ' satellites</div>';
