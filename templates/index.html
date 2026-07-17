@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Satellite TLE Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
@@ -47,6 +48,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .summary { font-size: 12px; color: #aaa; margin-top: 6px; flex-shrink: 0; }
 .loading { text-align: center; padding: 40px; color: #666; }
 .error { color: #ff5252; padding: 10px; }
+.db-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #aaa; cursor: pointer; }
+.db-toggle input { accent-color: #7c4dff; }
 </style>
 </head>
 <body>
@@ -58,6 +61,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <span class="status" id="statusText">Loading...</span>
     <span style="flex:1"></span>
     <button class="btn btn-analyze" id="btnAnalyze" onclick="analyze()">Analyze</button>
+    <label class="db-toggle"><input type="checkbox" id="dbMode" onchange="analyze()"> dB</label>
     <label>Bin:
       <select id="binWidth" onchange="analyze()">
         <option value="1">1 km</option>
@@ -94,6 +98,60 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 let allSats = [];
 let categories = [];
 let chartInstance = null;
+
+Chart.register(ChartDataLabels);
+
+function labelColorFor(bg) {
+  if (!bg || bg.startsWith('rgba') || bg.startsWith('rgb')) return '#fff';
+  if (!bg.startsWith('#')) return '#fff';
+  var hex = bg.replace('#', '');
+  if (hex.length < 6) return '#fff';
+  var r = parseInt(hex.substr(0, 2), 16);
+  var g = parseInt(hex.substr(2, 2), 16);
+  var b = parseInt(hex.substr(4, 2), 16);
+  var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.5 ? '#000' : '#fff';
+}
+
+var totalLabelsPlugin = {
+  id: 'totalLabels',
+  afterDraw: function(chart) {
+    var ctx = chart.ctx;
+    if (!ctx) return;
+    var opts = chart.options.plugins.totalLabels || {};
+    var totals = opts.totals || [];
+    var useDb = opts.useDb || false;
+    if (totals.length === 0) return;
+    var xScale = chart.scales.x;
+    var yScale = chart.scales.y;
+    if (!xScale || !yScale) return;
+    ctx.font = 'bold 12px system-ui';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    var firstMeta = null;
+    for (var d = 0; d < chart.data.datasets.length; d++) {
+      if (chart.data.datasets[d].label !== '') {
+        firstMeta = chart.getDatasetMeta(d);
+        break;
+      }
+    }
+    if (!firstMeta || !firstMeta.data) return;
+    for (var i = 0; i < totals.length; i++) {
+      if (totals[i] <= 0) continue;
+      var sum = 0;
+      for (var d = 0; d < chart.data.datasets.length; d++) {
+        var v = chart.data.datasets[d].data[i] || 0;
+        sum += v;
+      }
+      if (sum <= 0) continue;
+      var xPos = xScale.getPixelForValue(sum);
+      var yPos = firstMeta.data[i] && firstMeta.data[i].y;
+      if (yPos === undefined || isNaN(yPos)) continue;
+      ctx.fillStyle = '#aaa';
+      ctx.fillText(String(totals[i]), xPos + 5, yPos);
+    }
+  }
+};
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -227,11 +285,13 @@ function getSelectedSubs() {
 function syncHash() {
   const selected = getSelectedSubs();
   const bw = document.getElementById('binWidth').value;
+  const db = document.getElementById('dbMode').checked;
   const params = new URLSearchParams();
   if (selected.length) params.set('s', selected.join(','));
   if (bw !== '10') params.set('bw', bw);
   const bh = document.getElementById('binHeight').value;
   if (bh !== '20') params.set('bh', bh);
+  if (db) params.set('db', '1');
   const hash = params.toString();
   if (hash) history.replaceState(null, '', '#' + hash);
   else history.replaceState(null, '', window.location.pathname);
@@ -249,6 +309,7 @@ function applyHash() {
   }
   if (params.has('bw')) document.getElementById('binWidth').value = params.get('bw');
   if (params.has('bh')) document.getElementById('binHeight').value = params.get('bh');
+  document.getElementById('dbMode').checked = params.has('db');
 }
 
 async function checkHash() {
@@ -292,76 +353,162 @@ async function analyze() {
   btn.disabled = false;
 }
 
+function toDb(v) { return v > 0 ? 20 * Math.log10(v + 1) : 0; }
+
 function renderChart(result) {
-  const container = document.getElementById('chartContainer');
+  var useDb = document.getElementById('dbMode').checked;
+
+  var container = document.getElementById('chartContainer');
   container.style.display = 'block';
 
-  const labels = result.bins.map(b => b.collapsed ? '⋯ ' + b.min + ' km ⋯' : b.min + '-' + b.max + ' km');
+  var labels = result.bins.map(function(b) { return b.collapsed ? '⋯ ' + b.min + ' km ⋯' : b.min + '-' + b.max + ' km'; });
 
-  const subColorMap = {};
-  const subLabelMap = {};
-  for (const cat of categories)
-    for (const sub of cat.subcategories) {
+  var subColorMap = {};
+  var subLabelMap = {};
+  for (var ci = 0; ci < categories.length; ci++)
+    for (var si = 0; si < categories[ci].subcategories.length; si++) {
+      var sub = categories[ci].subcategories[si];
       subColorMap[sub.key] = sub.color;
       subLabelMap[sub.key] = sub.label;
     }
   subColorMap['uncategorized'] = '#E0E0E0';
   subLabelMap['uncategorized'] = 'Uncategorized';
 
-  const allSubKeys = new Set();
-  for (const b of result.bins)
-    for (const sk in b.subcategories) allSubKeys.add(sk);
+  var allSubKeys = new Set();
+  for (var bi = 0; bi < result.bins.length; bi++)
+    for (var sk in result.bins[bi].subcategories) allSubKeys.add(sk);
 
-  const sortedSubs = [];
-  for (const cat of categories)
-    for (const sub of cat.subcategories)
+  var sortedSubs = [];
+  for (var ci = 0; ci < categories.length; ci++)
+    for (var si = 0; si < categories[ci].subcategories.length; si++) {
+      var sub = categories[ci].subcategories[si];
       if (allSubKeys.has(sub.key)) sortedSubs.push(sub);
+    }
   if (allSubKeys.has('uncategorized'))
     sortedSubs.push({ key: 'uncategorized', label: 'Uncategorized', color: '#E0E0E0' });
 
-  const datasets = [];
-  for (const sub of sortedSubs) {
-    const data = result.bins.map(b => b.subcategories[sub.key] || 0);
-    datasets.push({
+  var datasets = [];
+  for (var si = 0; si < sortedSubs.length; si++) {
+    var sub = sortedSubs[si];
+    var rawData = result.bins.map(function(b) { return b.subcategories[sub.key] || 0; });
+    var data = useDb ? rawData.map(toDb) : rawData;
+    var ds = {
       label: sub.label,
       data: data,
       backgroundColor: sub.color,
       borderWidth: 0,
       borderRadius: 2,
-    });
+    };
+    if (useDb) ds.rawData = rawData;
+    datasets.push(ds);
   }
 
-  const gapData = result.bins.map(b => b.collapsed ? 1 : 0);
-  if (gapData.some(v => v > 0)) {
+  var gapRaw = result.bins.map(function(b) { return b.collapsed ? 1 : 0; });
+  var hasGap = gapRaw.some(function(v) { return v > 0; });
+  if (hasGap) {
     datasets.push({
       label: '',
-      data: gapData,
+      data: useDb ? gapRaw.map(toDb) : gapRaw,
       backgroundColor: 'rgba(255,255,255,0.06)',
       borderWidth: 0,
       borderRadius: 2,
     });
   }
 
+  var binTotals = result.bins.map(function(b) { return b.count || 0; });
+
   if (chartInstance) chartInstance.destroy();
 
-  const PX_PER_BIN = Math.min(100, parseInt(document.getElementById('binHeight').value, 10) || 20);
-  const binCount = result.bins.length;
-  const chartHeight = Math.max(250, binCount * PX_PER_BIN + 120);
+  var PX_PER_BIN = Math.min(100, parseInt(document.getElementById('binHeight').value, 10) || 20);
+  var binCount = result.bins.length;
+  var chartHeight = Math.max(250, binCount * PX_PER_BIN + 120);
   container.style.height = chartHeight + 'px';
 
-  const rangeLo = result.range_min_original !== undefined ? result.range_min_original : result.bins[0].min;
-  const rangeHi = result.range_max_original !== undefined ? result.range_max_original : result.bins[result.bins.length - 1].max;
+  var rangeLo = result.range_min_original !== undefined ? result.range_min_original : result.bins[0].min;
+  var rangeHi = result.range_max_original !== undefined ? result.range_max_original : result.bins[result.bins.length - 1].max;
   document.getElementById('summaryText').textContent =
     'Bin width: ' + result.bin_width + ' km | Range min: ' + result.range_min +
     ' km | Height: ' + document.getElementById('binHeight').value + ' px | Range: ' +
     rangeLo + ' – ' + rangeHi +
-    ' km | ' + result.count + ' satellites';
+    ' km | ' + result.count + ' satellites' +
+    (useDb ? ' | dB scale' : '');
 
-  const canvas = document.getElementById('histogramChart');
-  const ctx = canvas.getContext('2d');
+  var pluginOpts = {
+    legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
+    tooltip: {
+      filter: function(item) {
+        if (useDb) {
+          var raw = (item.dataset.rawData || [])[item.dataIndex] || 0;
+          return raw > 0;
+        }
+        return item.raw > 0;
+      },
+      callbacks: {
+        title: function(items) { return items.length ? items[0].label : ''; },
+        label: function(context) {
+          var raw = useDb ? (context.dataset.rawData || [])[context.dataIndex] : context.raw;
+          return context.dataset.label ? context.dataset.label + ': ' + raw : '';
+        },
+        footer: function(items) {
+          if (!items.length) return '';
+          var total = 0;
+          for (var ii = 0; ii < items.length; ii++) {
+            total += useDb ? ((items[ii].dataset.rawData || [])[items[ii].dataIndex] || 0) : (items[ii].raw || 0);
+          }
+          return 'Total: ' + total + ' satellites';
+        }
+      }
+    },
+    totalLabels: {
+      totals: binTotals,
+      useDb: useDb,
+    }
+  };
+
+  if (useDb) {
+    pluginOpts.datalabels = {
+      anchor: 'center',
+      align: 'center',
+      color: function(context) {
+        if (context.dataset.label === '') return 'transparent';
+        return labelColorFor(context.dataset.backgroundColor);
+      },
+      font: { weight: 'bold', size: 11 },
+      formatter: function(value, context) {
+        if (context.dataset.label === '') return '';
+        var raw = (context.dataset.rawData || [])[context.dataIndex];
+        return raw > 0 ? String(raw) : '';
+      }
+    };
+  } else {
+    pluginOpts.datalabels = false;
+  }
+
+  var scaleX = {
+    stacked: true,
+    beginAtZero: true,
+    grid: { color: 'rgba(255,255,255,0.08)' },
+    title: { display: true, text: useDb ? 'dB (20·log₁₀(count+1))' : 'Satellite Count', color: '#999' }
+  };
+
+  if (useDb) {
+    scaleX.ticks = {
+      color: '#999',
+      callback: function(value) {
+        if (value <= 0) return '0';
+        var c = Math.round(Math.pow(10, value / 20) - 1);
+        return c >= 0 ? String(c) : '0';
+      }
+    };
+  } else {
+    scaleX.ticks = { color: '#999' };
+  }
+
+  var canvas = document.getElementById('histogramChart');
+  var ctx = canvas.getContext('2d');
   chartInstance = new Chart(ctx, {
     type: 'bar',
-    data: { labels, datasets },
+    data: { labels: labels, datasets: datasets },
     options: {
       indexAxis: 'y',
       responsive: true,
@@ -371,29 +518,9 @@ function renderChart(result) {
         intersect: false,
         axis: 'y'
       },
-      plugins: {
-        legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
-        tooltip: {
-          filter: function(item) { return item.raw > 0; },
-          callbacks: {
-            title: function(items) { return items.length ? items[0].label : ''; },
-            label: function(context) { return context.dataset.label + ': ' + context.raw; },
-            footer: function(items) {
-              if (!items.length) return '';
-              const total = items.reduce((s, i) => s + i.raw, 0);
-              return 'Total: ' + total + ' satellites';
-            }
-          }
-        }
-      },
+      plugins: pluginOpts,
       scales: {
-        x: {
-          stacked: true,
-          beginAtZero: true,
-          ticks: { color: '#999' },
-          grid: { color: 'rgba(255,255,255,0.08)' },
-          title: { display: true, text: 'Count', color: '#999' }
-        },
+        x: scaleX,
         y: {
           stacked: true,
           ticks: { color: '#999', font: { size: 10 } },
@@ -404,9 +531,9 @@ function renderChart(result) {
       elements: {
         bar: { categoryPercentage: 1, barPercentage: 1 }
       }
-    }
+    },
+    plugins: [totalLabelsPlugin]
   });
-
 }
 
 init();

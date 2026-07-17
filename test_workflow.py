@@ -170,6 +170,29 @@ def main():
             expect(chart_canvas).to_be_visible()
             print("   Analyze after Select All OK")
 
+            # --- Step 9: Test dB mode toggle ---
+            print("9. Testing dB mode toggle...")
+            if starlink_cb.count() > 0 and not starlink_cb.is_checked():
+                starlink_cb.check()
+            page.click('#btnAnalyze')
+            page.wait_for_timeout(2000)
+            expect(chart_canvas).to_be_visible()
+
+            db_cb = page.locator('#dbMode')
+            db_cb.check()
+            page.wait_for_timeout(2000)
+            expect(chart_canvas).to_be_visible()
+            print("   dB mode ON - chart rendered")
+
+            summary_text = page.locator('#summaryText').text_content()
+            assert 'dB' in summary_text, f"Expected 'dB scale' in summary: {summary_text}"
+            print(f"   dB summary: {summary_text}")
+
+            db_cb.uncheck()
+            page.wait_for_timeout(2000)
+            expect(chart_canvas).to_be_visible()
+            print("   dB mode OFF - chart rendered OK")
+
             browser.close()
             print("\nAll tests passed!")
 
