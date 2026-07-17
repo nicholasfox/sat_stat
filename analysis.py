@@ -1,3 +1,4 @@
+import colorsys
 import json
 import math
 import os
@@ -169,6 +170,15 @@ def _build_flat_patterns():
     return flat
 
 FLAT_PATTERNS = _build_flat_patterns()
+
+def _sub_color(base_hex, idx, total):
+    r, g, b = int(base_hex[1:3], 16) / 255.0, int(base_hex[3:5], 16) / 255.0, int(base_hex[5:7], 16) / 255.0
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    if total > 1:
+        offset = (idx / (total - 1) - 0.5) * 0.22
+        h = (h + offset) % 1.0
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    return '#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255))
 UNCAT_KEY = 'uncategorized'
 
 
@@ -311,7 +321,9 @@ def api_categories():
     for cat in CATEGORIES:
         subs = [{'key': s['key'], 'label': s['label'],
                  'country': s.get('country', ''), 'operator': s.get('operator', ''),
-                 'name_zh': s.get('name_zh', '')} for s in cat['subcategories']]
+                 'name_zh': s.get('name_zh', ''),
+                 'color': _sub_color(cat['color'], i, len(cat['subcategories']))}
+                for i, s in enumerate(cat['subcategories'])]
         clean.append({
             'key': cat['key'],
             'label': cat['label'],
@@ -355,6 +367,7 @@ def api_analyze():
             'max': hi,
             'count': 0,
             'categories': {},
+            'subcategories': {},
         })
 
     for sat in filtered:
@@ -363,6 +376,8 @@ def api_analyze():
             bins[idx]['count'] += 1
             ck = sat['cat_key']
             bins[idx]['categories'][ck] = bins[idx]['categories'].get(ck, 0) + 1
+            sk = sat['sub_key']
+            bins[idx]['subcategories'][sk] = bins[idx]['subcategories'].get(sk, 0) + 1
 
     return json.dumps({
         'status': 'ok',
@@ -416,8 +431,8 @@ def api_update_status():
 if __name__ == '__main__':
     try:
         from cheroot.wsgi import Server as CherootServer
-        server = CherootServer(('0.0.0.0', int(os.environ.get('PORT', '5000'))), app, numthreads=10)
+        server = CherootServer(('0.0.0.0', int(os.environ.get('PORT', '15001'))), app, numthreads=10)
         print(f'Listening on http://0.0.0.0:{os.environ.get("PORT", "5000")} (cheroot, 10 threads)')
         server.start()
     except ImportError:
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '5000')), debug=True)
+        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '15001')), debug=True)

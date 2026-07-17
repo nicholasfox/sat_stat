@@ -296,27 +296,34 @@ function renderChart(result) {
 
   const labels = result.bins.map(b => b.min + '-' + b.max + ' km');
 
-  const datasets = [];
-  const colorMap = {};
-  for (const cat of categories) colorMap[cat.key] = cat.color;
-  colorMap['uncategorized'] = '#E0E0E0';
-
-  const allCatKeys = new Set();
-  for (const b of result.bins)
-    for (const ck in b.categories) allCatKeys.add(ck);
-
-  const sortedCats = [];
+  const subColorMap = {};
+  const subLabelMap = {};
   for (const cat of categories)
-    if (allCatKeys.has(cat.key)) sortedCats.push(cat);
-  if (allCatKeys.has('uncategorized'))
-    sortedCats.push({ key: 'uncategorized', label: 'Uncategorized', color: '#E0E0E0' });
+    for (const sub of cat.subcategories) {
+      subColorMap[sub.key] = sub.color;
+      subLabelMap[sub.key] = sub.label;
+    }
+  subColorMap['uncategorized'] = '#E0E0E0';
+  subLabelMap['uncategorized'] = 'Uncategorized';
 
-  for (const cat of sortedCats) {
-    const data = result.bins.map(b => b.categories[cat.key] || 0);
+  const allSubKeys = new Set();
+  for (const b of result.bins)
+    for (const sk in b.subcategories) allSubKeys.add(sk);
+
+  const sortedSubs = [];
+  for (const cat of categories)
+    for (const sub of cat.subcategories)
+      if (allSubKeys.has(sub.key)) sortedSubs.push(sub);
+  if (allSubKeys.has('uncategorized'))
+    sortedSubs.push({ key: 'uncategorized', label: 'Uncategorized', color: '#E0E0E0' });
+
+  const datasets = [];
+  for (const sub of sortedSubs) {
+    const data = result.bins.map(b => b.subcategories[sub.key] || 0);
     datasets.push({
-      label: cat.label || cat.key,
+      label: sub.label,
       data: data,
-      backgroundColor: cat.color || '#888',
+      backgroundColor: sub.color,
       borderWidth: 0,
       borderRadius: 2,
     });
@@ -329,6 +336,12 @@ function renderChart(result) {
   const chartHeight = Math.max(250, binCount * PX_PER_BIN + 120);
   container.style.height = chartHeight + 'px';
 
+  document.getElementById('summaryText').textContent =
+    'Bin width: ' + result.bin_width + ' km | Range min: ' + result.range_min +
+    ' km | Height: ' + document.getElementById('binHeight').value + ' px | Range: ' +
+    result.bins[0].min + ' – ' + result.bins[result.bins.length - 1].max +
+    ' km | ' + result.count + ' satellites';
+
   const canvas = document.getElementById('histogramChart');
   const ctx = canvas.getContext('2d');
   chartInstance = new Chart(ctx, {
@@ -338,15 +351,20 @@ function renderChart(result) {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+        axis: 'y'
+      },
       plugins: {
         legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
         tooltip: {
-          mode: 'index',
-          intersect: false,
-          axis: 'y',
+          filter: function(item) { return item.raw > 0; },
           callbacks: {
-            title: function(items) { return items[0].label; },
+            title: function(items) { return items.length ? items[0].label : ''; },
+            label: function(context) { return context.dataset.label + ': ' + context.raw; },
             footer: function(items) {
+              if (!items.length) return '';
               const total = items.reduce((s, i) => s + i.raw, 0);
               return 'Total: ' + total + ' satellites';
             }
@@ -374,10 +392,6 @@ function renderChart(result) {
     }
   });
 
-  document.getElementById('summaryText').textContent =
-    'Bin width: ' + result.bin_width + ' km | Range min: ' + result.range_min +
-    ' km | Range: ' + result.bins[0].min + ' – ' + result.bins[result.bins.length - 1].max +
-    ' km | ' + result.count + ' satellites';
 }
 
 init();
