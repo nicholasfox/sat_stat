@@ -447,6 +447,8 @@ function renderChart(result) {
       titleColor: 'transparent',
       bodyColor: 'transparent',
       footerColor: 'transparent',
+      labelColor: function() { return { borderColor: 'transparent', backgroundColor: 'transparent', borderWidth: 0 }; },
+      boxPadding: 0,
       filter: function(item) {
         if (item.dataset.label === '') return false;
         if (useDb) {
