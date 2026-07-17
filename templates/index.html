@@ -403,18 +403,6 @@ function renderChart(result) {
     datasets.push(ds);
   }
 
-  var gapRaw = result.bins.map(function(b) { return b.collapsed ? 1 : 0; });
-  var hasGap = gapRaw.some(function(v) { return v > 0; });
-  if (hasGap) {
-    datasets.push({
-      label: '',
-      data: useDb ? gapRaw.map(toDb) : gapRaw,
-      backgroundColor: 'rgba(255,255,255,0.06)',
-      borderWidth: 0,
-      borderRadius: 2,
-    });
-  }
-
   var binTotals = result.bins.map(function(b) { return b.count || 0; });
 
   if (chartInstance) chartInstance.destroy();
@@ -434,9 +422,7 @@ function renderChart(result) {
     (useDb ? ' | dB scale' : '');
 
   var pluginOpts = {
-    legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12,
-      filter: function(item) { return item.text !== ''; }
-    } },
+    legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
     tooltip: {
       filter: function(item) {
         if (item.dataset.label === '') return false;
