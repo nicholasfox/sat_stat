@@ -387,11 +387,21 @@ function renderChart(result) {
   if (allSubKeys.has('uncategorized'))
     sortedSubs.push({ key: 'uncategorized', label: 'Uncategorized', color: '#E0E0E0' });
 
+  var binTotals = result.bins.map(function(b) { return b.count || 0; });
+
   var datasets = [];
   for (var si = 0; si < sortedSubs.length; si++) {
     var sub = sortedSubs[si];
     var rawData = result.bins.map(function(b) { return b.subcategories[sub.key] || 0; });
-    var data = useDb ? rawData.map(toDb) : rawData;
+    var data;
+    if (useDb) {
+      data = rawData.map(function(v, i) {
+        var rt = binTotals[i];
+        return rt > 0 ? (v / rt) * toDb(rt) : 0;
+      });
+    } else {
+      data = rawData;
+    }
     var ds = {
       label: sub.label,
       data: data,
@@ -402,8 +412,6 @@ function renderChart(result) {
     if (useDb) ds.rawData = rawData;
     datasets.push(ds);
   }
-
-  var binTotals = result.bins.map(function(b) { return b.count || 0; });
 
   if (chartInstance) chartInstance.destroy();
 
