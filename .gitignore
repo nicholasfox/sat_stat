@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 test_tle_data.json
+node_modules/
+package-lock.json
+package.json
