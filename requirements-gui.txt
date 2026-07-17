@@ -1,0 +1,4 @@
+bottle>=0.13
+cheroot>=11
+pywebview>=5
+pyinstaller>=6

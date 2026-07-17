@@ -4,11 +4,19 @@ import math
 import os
 import re
 import sys
+import argparse
+import threading
 from urllib.request import Request, urlopen, HTTPError, URLError
 
-from bottle import Bottle, request, response, static_file, template
+from bottle import Bottle, request, response, static_file
 
-TLE_STATIC_FILE = os.path.join(os.path.dirname(__file__), 'tle_data.json')
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+TLE_STATIC_FILE = os.path.join(BASE_DIR, 'tle_data.json')
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'
 TLE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 R_EARTH = 6371.0
@@ -340,7 +348,12 @@ def enable_cors():
 
 @app.route('/')
 def index():
-    return static_file('index.html', root=os.path.join(os.path.dirname(__file__), 'templates'))
+    return static_file('index.html', root=TEMPLATE_DIR)
+
+
+@app.route('/<filename:re:(chart\.js|chartjs-plugin-datalabels\.js)>')
+def serve_static(filename):
+    return static_file(filename, root=TEMPLATE_DIR)
 
 
 @app.route('/update', method=['POST', 'OPTIONS'])
@@ -499,11 +512,49 @@ def api_update_status():
     return json.dumps({'status': 'ok', 'cached': False, 'count': 0})
 
 
-if __name__ == '__main__':
+def start_server(host, port):
     try:
         from cheroot.wsgi import Server as CherootServer
-        server = CherootServer(('0.0.0.0', int(os.environ.get('PORT', '15001'))), app, numthreads=10)
-        print(f'Listening on http://0.0.0.0:{os.environ.get("PORT", "15001")} (cheroot, 10 threads)')
+        server = CherootServer((host, port), app, numthreads=10)
+        print(f'Listening on http://{host}:{port} (cheroot, 10 threads)')
         server.start()
     except ImportError:
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '15001')), debug=True)
+        app.run(host=host, port=port, debug=True)
+
+
+def main_gui(port):
+    t = threading.Thread(target=start_server, args=('127.0.0.1', port), daemon=True)
+    t.start()
+    import time
+    time.sleep(0.8)
+
+    import webview
+    webview.create_window(
+        title='Satellite TLE Analyzer',
+        url=f'http://127.0.0.1:{port}/',
+        width=1400, height=900, resizable=True, min_size=(800, 600),
+    )
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Satellite TLE Analyzer')
+    gui_default = getattr(sys, 'frozen', False)
+    parser.add_argument('--gui', action='store_true', dest='gui', default=gui_default)
+    parser.add_argument('--no-gui', action='store_false', dest='gui')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', '15001')),
+                        help='HTTP port (default: 15001)')
+    parser.add_argument('--bind', default='127.0.0.1',
+                        help='Bind address (default: 127.0.0.1). Use 0.0.0.0 for LAN access.')
+    parser.add_argument('--no-browser', action='store_true', help='Do not auto-open browser in web mode')
+    args = parser.parse_args()
+
+    if args.gui:
+        main_gui(args.port)
+    else:
+        if not args.no_browser:
+            def _open_browser():
+                import time, webbrowser
+                time.sleep(1.5)
+                webbrowser.open(f'http://127.0.0.1:{args.port}/')
+            threading.Thread(target=_open_browser, daemon=True).start()
+        start_server(args.bind, args.port)

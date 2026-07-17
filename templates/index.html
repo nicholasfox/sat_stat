@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Satellite TLE Analyzer</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="chart.js"></script>
+<script>window.Chart||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7"><\/scr'+'ipt>')</script>
+<script src="chartjs-plugin-datalabels.js"></script>
+<script>window.Chart?.register?.(window.ChartDataLabels)||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"><\/scr'+'ipt>')</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }

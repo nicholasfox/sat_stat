@@ -23,7 +23,7 @@ def start_server():
     env = os.environ.copy()
     env['PORT'] = PORT
     proc = subprocess.Popen(
-        [sys.executable, SERVER_SCRIPT],
+        [sys.executable, SERVER_SCRIPT, '--bind', '0.0.0.0'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         preexec_fn=os.setsid,
