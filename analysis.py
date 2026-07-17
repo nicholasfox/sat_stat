@@ -171,15 +171,29 @@ def _build_flat_patterns():
 
 FLAT_PATTERNS = _build_flat_patterns()
 
-def _sub_color(base_hex, idx, total):
-    r, g, b = int(base_hex[1:3], 16) / 255.0, int(base_hex[3:5], 16) / 255.0, int(base_hex[5:7], 16) / 255.0
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
-    if total > 1:
-        offset = (idx / (total - 1) - 0.5) * 0.22
-        h = (h + offset) % 1.0
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    return '#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255))
 UNCAT_KEY = 'uncategorized'
+
+# Bright categorical palette (40 colors), all saturated and distinct.
+# Sources: D3 schemeSet1, schemeAccent, schemeDark2, Tableau 10.
+_SUB_COLORS = [
+    '#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf',
+    '#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#f0027f',
+    '#7fc97f','#beaed4','#fdc086','#386cb0','#bf5b17','#4e79a7','#f28e2b','#e15759',
+    '#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#17becf','#bcbd22',
+    '#e377c2','#8c564b','#9467bd','#2ca02c','#d62728','#ffbb78','#98df8a','#c5b0d5',
+]
+
+def _assign_sub_colors():
+    all_subs = []
+    for cat in CATEGORIES:
+        for sub in cat['subcategories']:
+            all_subs.append(sub)
+    total = len(all_subs)
+    step = 17
+    for i in range(total):
+        all_subs[i]['color'] = _SUB_COLORS[(i * step) % 40]
+
+_assign_sub_colors()
 
 
 def classify(name):
@@ -322,8 +336,8 @@ def api_categories():
         subs = [{'key': s['key'], 'label': s['label'],
                  'country': s.get('country', ''), 'operator': s.get('operator', ''),
                  'name_zh': s.get('name_zh', ''),
-                 'color': _sub_color(cat['color'], i, len(cat['subcategories']))}
-                for i, s in enumerate(cat['subcategories'])]
+                 'color': s['color']}
+                for s in cat['subcategories']]
         clean.append({
             'key': cat['key'],
             'label': cat['label'],
@@ -432,7 +446,7 @@ if __name__ == '__main__':
     try:
         from cheroot.wsgi import Server as CherootServer
         server = CherootServer(('0.0.0.0', int(os.environ.get('PORT', '15001'))), app, numthreads=10)
-        print(f'Listening on http://0.0.0.0:{os.environ.get("PORT", "5000")} (cheroot, 10 threads)')
+        print(f'Listening on http://0.0.0.0:{os.environ.get("PORT", "15001")} (cheroot, 10 threads)')
         server.start()
     except ImportError:
         app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '15001')), debug=True)
