@@ -388,6 +388,11 @@ function renderChart(result) {
     sortedSubs.push({ key: 'uncategorized', label: 'Uncategorized', color: '#E0E0E0' });
 
   var binTotals = result.bins.map(function(b) { return b.count || 0; });
+  var binDbTotals = useDb ? result.bins.map(function(b) {
+    return Object.keys(b.subcategories)
+      .map(function(k) { return toDb(b.subcategories[k] || 0); })
+      .reduce(function(s, v) { return s + v; }, 0);
+  }) : null;
 
   var datasets = [];
   for (var si = 0; si < sortedSubs.length; si++) {
@@ -397,7 +402,8 @@ function renderChart(result) {
     if (useDb) {
       data = rawData.map(function(v, i) {
         var rt = binTotals[i];
-        return rt > 0 ? (v / rt) * toDb(rt) : 0;
+        var bdt = binDbTotals[i];
+        return rt > 0 && bdt > 0 ? (toDb(v) / bdt) * toDb(rt) : 0;
       });
     } else {
       data = rawData;
