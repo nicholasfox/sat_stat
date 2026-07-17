@@ -5,3 +5,5 @@ test_tle_data.json
 node_modules/
 package-lock.json
 package.json
+dist/
+*.zip
