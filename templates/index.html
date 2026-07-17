@@ -296,7 +296,7 @@ function renderChart(result) {
   const container = document.getElementById('chartContainer');
   container.style.display = 'block';
 
-  const labels = result.bins.map(b => b.min + '-' + b.max + ' km');
+  const labels = result.bins.map(b => b.collapsed ? '⋯ ' + b.min + ' km ⋯' : b.min + '-' + b.max + ' km');
 
   const subColorMap = {};
   const subLabelMap = {};
@@ -331,6 +331,17 @@ function renderChart(result) {
     });
   }
 
+  const gapData = result.bins.map(b => b.collapsed ? 1 : 0);
+  if (gapData.some(v => v > 0)) {
+    datasets.push({
+      label: '',
+      data: gapData,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      borderWidth: 0,
+      borderRadius: 2,
+    });
+  }
+
   if (chartInstance) chartInstance.destroy();
 
   const PX_PER_BIN = Math.min(100, parseInt(document.getElementById('binHeight').value, 10) || 20);
@@ -338,10 +349,12 @@ function renderChart(result) {
   const chartHeight = Math.max(250, binCount * PX_PER_BIN + 120);
   container.style.height = chartHeight + 'px';
 
+  const rangeLo = result.range_min_original !== undefined ? result.range_min_original : result.bins[0].min;
+  const rangeHi = result.range_max_original !== undefined ? result.range_max_original : result.bins[result.bins.length - 1].max;
   document.getElementById('summaryText').textContent =
     'Bin width: ' + result.bin_width + ' km | Range min: ' + result.range_min +
     ' km | Height: ' + document.getElementById('binHeight').value + ' px | Range: ' +
-    result.bins[0].min + ' – ' + result.bins[result.bins.length - 1].max +
+    rangeLo + ' – ' + rangeHi +
     ' km | ' + result.count + ' satellites';
 
   const canvas = document.getElementById('histogramChart');

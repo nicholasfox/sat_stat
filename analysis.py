@@ -422,13 +422,42 @@ def api_analyze():
             sk = sat['sub_key']
             bins[idx]['subcategories'][sk] = bins[idx]['subcategories'].get(sk, 0) + 1
 
+    collapsed_bins = []
+    empty_run = []
+    for b in bins:
+        if b['count'] == 0 and not b['subcategories']:
+            empty_run.append(b)
+        else:
+            if empty_run:
+                if len(empty_run) <= 3:
+                    collapsed_bins.extend(empty_run)
+                else:
+                    mid = len(empty_run) // 2
+                    for idx in [0, mid, -1]:
+                        eb = dict(empty_run[idx])
+                        eb['collapsed'] = True
+                        collapsed_bins.append(eb)
+                empty_run = []
+            collapsed_bins.append(b)
+    if empty_run:
+        if len(empty_run) <= 3:
+            collapsed_bins.extend(empty_run)
+        else:
+            mid = len(empty_run) // 2
+            for idx in [0, mid, -1]:
+                eb = dict(empty_run[idx])
+                eb['collapsed'] = True
+                collapsed_bins.append(eb)
+
     return json.dumps({
         'status': 'ok',
-        'bins': bins,
+        'bins': collapsed_bins,
         'count': len(filtered),
         'total': len(enriched),
         'bin_width': bin_width,
         'range_min': bin_start,
+        'range_min_original': round(min_h),
+        'range_max_original': round(max_h),
     })
 
 
