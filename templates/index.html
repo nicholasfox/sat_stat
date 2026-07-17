@@ -438,7 +438,14 @@ function renderChart(result) {
   var pluginOpts = {
     legend: { position: 'top', labels: { color: '#ccc', boxWidth: 14, padding: 12 } },
     tooltip: {
-      position: 'nearest',
+      position: function(elements, eventPosition) {
+        return { x: eventPosition.x, y: eventPosition.y };
+      },
+      backgroundColor: '#2a2a2a',
+      titleColor: '#eee',
+      bodyColor: '#ccc',
+      footerColor: '#eee',
+      caretSize: 0,
       filter: function(item) {
         if (item.dataset.label === '') return false;
         if (useDb) {
