@@ -175,12 +175,13 @@ UNCAT_KEY = 'uncategorized'
 
 # Bright categorical palette (40 colors), all saturated and distinct.
 # Sources: D3 schemeSet1, schemeAccent, schemeDark2, Tableau 10.
+# Palette interleaving color families so adjacent subs are visually distinct.
 _SUB_COLORS = [
-    '#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf',
-    '#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#f0027f',
-    '#7fc97f','#beaed4','#fdc086','#386cb0','#bf5b17','#4e79a7','#f28e2b','#e15759',
-    '#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#17becf','#bcbd22',
-    '#e377c2','#8c564b','#9467bd','#2ca02c','#d62728','#ffbb78','#98df8a','#c5b0d5',
+    '#1f77b4','#e41a1c','#4daf4a','#ff7f00','#984ea3','#ffff33','#17becf','#e377c2',
+    '#386cb0','#d62728','#2ca02c','#f28e2b','#9467bd','#bcbd22','#5254a3','#f781bf',
+    '#377eb8','#e15759','#66a61e','#d95f02','#6b6ecf','#edc948','#76b7b2','#e7298a',
+    '#4e79a7','#f0027f','#1b9e77','#e6ab02','#7570b3','#fdc086','#7fc97f','#98df8a',
+    '#beaed4','#c5b0d5','#59a14f','#a65628','#8c564b','#9c755f','#bf5b17','#a6761d',
 ]
 
 def _assign_sub_colors():
@@ -188,10 +189,10 @@ def _assign_sub_colors():
     for cat in CATEGORIES:
         for sub in cat['subcategories']:
             all_subs.append(sub)
-    total = len(all_subs)
-    step = 17
-    for i in range(total):
-        all_subs[i]['color'] = _SUB_COLORS[(i * step) % 40]
+    for i, sub in enumerate(all_subs):
+        sub['color'] = _SUB_COLORS[i % 40]
+
+_assign_sub_colors()
 
 _assign_sub_colors()
 
