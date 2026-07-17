@@ -20,7 +20,6 @@ PyInstaller.__main__.run([
     f'--add-data={os.path.join(BASE, "templates")}:templates',
     f'--add-data={os.path.join(BASE, "tle_data.json")}:.',
     '--hidden-import=cheroot.wsgi',
-    '--hidden-import=webview.platforms.winforms',
-    '--console',
+    '--windowed',
     os.path.join(BASE, 'analysis.py'),
 ])

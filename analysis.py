@@ -533,25 +533,9 @@ def start_server(host, port):
 
 
 def main_gui(port):
-    try:
-        t = threading.Thread(target=start_server, args=('127.0.0.1', port), daemon=True)
-        t.start()
-        import time
-        time.sleep(0.8)
-
-        import webview
-        webview.create_window(
-            title='Satellite TLE Analyzer',
-            url=f'http://127.0.0.1:{port}/',
-            width=1400, height=900, resizable=True, min_size=(800, 600),
-        )
-    except Exception:
-        import traceback, datetime
-        log_path = os.path.join(EXE_DIR, 'error.log')
-        with open(log_path, 'w') as f:
-            f.write(f'=== {datetime.datetime.now()} ===\n')
-            traceback.print_exc(file=f)
-        raise
+    import webbrowser, time
+    webbrowser.open(f'http://127.0.0.1:{port}/')
+    start_server('127.0.0.1', port)
 
 
 if __name__ == '__main__':
