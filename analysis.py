@@ -522,14 +522,29 @@ def api_update_status():
     return json.dumps({'status': 'ok', 'cached': False, 'count': 0})
 
 
+_http_server = None
+
 def start_server(host, port):
+    global _http_server
     try:
         from cheroot.wsgi import Server as CherootServer
-        server = CherootServer((host, port), app, numthreads=10)
+        _http_server = CherootServer((host, port), app, numthreads=10)
         print(f'Listening on http://{host}:{port} (cheroot, 10 threads)')
-        server.start()
+        _http_server.start()
     except ImportError:
         app.run(host=host, port=port, debug=True)
+
+
+@app.route('/api/shutdown')
+def api_shutdown():
+    def _stop():
+        import time
+        time.sleep(0.3)
+        if _http_server:
+            _http_server.stop()
+        os._exit(0)
+    threading.Thread(target=_stop, daemon=False).start()
+    return 'Server shutting down...'
 
 
 def main_gui(port):
