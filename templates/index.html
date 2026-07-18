@@ -137,6 +137,7 @@ let categories = [];
 let chartInstance = null;
 let currentResult = null;
 let currentExportSats = [];
+let currentExportLabel = '';
 
 Chart.register(ChartDataLabels);
 
@@ -396,6 +397,7 @@ async function analyze() {
 function toDb(v) { return v > 0 ? 20 * Math.log10(v + 1) : 0; }
 
 function showExportModal(binLabel, sats) {
+  currentExportLabel = binLabel;
   document.getElementById('modalTitle').textContent = 'Export: ' + binLabel;
   document.getElementById('modalCount').textContent = sats.length + ' satellites';
   var filterDiv = document.getElementById('modalFilterList');
@@ -441,12 +443,13 @@ function doExport(format) {
   checks.forEach(function(c) { selectedKeys[c.value] = true; });
   var sats = currentExportSats.filter(function(s) { return selectedKeys[s.sub_key]; });
   if (!sats.length) return;
+  var tag = '_' + currentExportLabel.replace(/[^0-9a-zA-Z\-]/g, '_');
   if (format === 'tle') {
-    var content = sats.map(function(s) { return s.line1 + '\n' + s.line2; }).join('\n');
-    downloadFile(content, 'satellites.tle', 'text/plain');
+    var content = sats.map(function(s) { return s.name + '\n' + s.line1 + '\n' + s.line2; }).join('\n');
+    downloadFile(content, 'satellites' + tag + '.tle', 'text/plain');
   } else if (format === 'txt') {
     var ids = sats.map(function(s) { return s.norad; }).join(',');
-    downloadFile(ids, 'satellites.txt', 'text/plain');
+    downloadFile(ids, 'satellites' + tag + '.txt', 'text/plain');
   }
 }
 
