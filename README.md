@@ -6,6 +6,8 @@ Fetches active TLE data from [Celestrak](https://celestrak.org/), classifies sat
 
 ![screenshot](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue)
 
+![snapshot](snapshot.png)
+
 ## Features
 
 - **Online TLE updates** — fetch latest active satellite data from Celestrak with one click
