@@ -71,6 +71,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .btn-download { background: #7c4dff; color: #fff; }
 .btn-close { background: #333; color: #ccc; }
 .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
+.modal-options { padding: 4px 20px 8px; font-size: 13px; color: #aaa; }
+.modal-options input { accent-color: #7c4dff; margin-right: 4px; }
 </style>
 </head>
 <body>
@@ -123,6 +125,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <div class="modal-count" id="modalCount"></div>
     <div class="modal-filter-label">Filter by constellation:</div>
     <div class="modal-filter-list" id="modalFilterList"></div>
+    <div class="modal-options">
+      <label><input type="checkbox" id="exportIncludeNames" checked> Include satellite names (3-line TLE)</label>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-download" id="btnDownloadTLE" onclick="doExport('tle')">Download TLE</button>
       <button class="btn btn-download" id="btnDownloadTXT" onclick="doExport('txt')">Download TXT</button>
@@ -445,7 +450,10 @@ function doExport(format) {
   if (!sats.length) return;
   var tag = '_' + currentExportLabel.replace(/[^0-9a-zA-Z\-]/g, '_');
   if (format === 'tle') {
-    var content = sats.map(function(s) { return s.name + '\n' + s.line1 + '\n' + s.line2; }).join('\n');
+    var includeNames = document.getElementById('exportIncludeNames').checked;
+    var content = sats.map(function(s) {
+      return (includeNames ? s.name + '\n' : '') + s.line1 + '\n' + s.line2;
+    }).join('\n');
     downloadFile(content, 'satellites' + tag + '.tle', 'text/plain');
   } else if (format === 'txt') {
     var ids = sats.map(function(s) { return s.norad; }).join(',');
