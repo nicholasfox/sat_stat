@@ -1,5 +1,8 @@
 name: Build Windows exe
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [feat/desktop-gui]
@@ -33,10 +36,12 @@ jobs:
           path: dist/sat_stat/
           compression-level: 6
 
+      - name: Package artifact
+        shell: powershell
+        run: Compress-Archive -Path dist/sat_stat/* -DestinationPath sat_stat.zip
+
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/sat_stat/**
-          generate_release_notes: true
+          files: sat_stat.zip
